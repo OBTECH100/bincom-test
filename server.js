@@ -146,7 +146,13 @@ app.get('/polling-unit', wrap(async (req, res) => {
 
 // ---------- Question 2: summed total per LGA (from polling-unit results only) ----------
 app.get('/lga-total', wrap(async (req, res) => {
-  const [lgas] = await pool.query('SELECT lga_id, lga_name FROM lga WHERE state_id = 25 ORDER BY lga_name');
+  const [lgas] = await pool.query(
+    `SELECT l.lga_id, l.lga_name FROM lga l
+     WHERE l.state_id = 25
+       AND EXISTS (SELECT 1 FROM polling_unit pu
+                   JOIN announced_pu_results r ON r.polling_unit_uniqueid = pu.uniqueid
+                   WHERE pu.lga_id = l.lga_id)
+     ORDER BY l.lga_name`);
   const id = req.query.lga_id;
   let results = emptyState('Select a local government above to see its summed total.');
   if (id) {
@@ -163,7 +169,7 @@ app.get('/lga-total', wrap(async (req, res) => {
   res.send(layout('Local Government Totals', 'Summed results of all polling units under a local government.',
     `<div class="card"><form method="get"><label for="lga_id">Local government</label>
      <select id="lga_id" name="lga_id" onchange="this.form.submit()"><option value="">Select a local government</option>${options}</select>
-     <div class="hint">Totals are calculated from individual polling unit results.</div></form></div>${results}`, 'lga'));
+     <div class="hint">Showing ${lgas.length} local government${lgas.length === 1 ? '' : 's'} with announced results. Totals are calculated from individual polling unit results.</div></form></div>${results}`, 'lga'));
 }));
 
 // ---------- Question 3: store results for a new polling unit ----------
